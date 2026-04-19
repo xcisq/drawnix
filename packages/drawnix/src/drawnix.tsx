@@ -41,6 +41,13 @@ import { I18nProvider } from './i18n';
 import { Tutorial } from './components/tutorial';
 import { LASER_POINTER_CLASS_NAME } from './utils/laser-pointer';
 import { BoardStyleContextMenu } from './llm-mermaid/components/board-style-context-menu';
+import {
+  FontFamilyConfigInput,
+  FontRoleFamilyConfig,
+  setProjectFontFamilyOptions,
+  setProjectFontRoleFamilies,
+} from './constants/font';
+import { withSelectionHit } from './plugins/with-selection-hit';
 
 export type DrawnixProps = {
   value: PlaitElement[];
@@ -53,6 +60,8 @@ export type DrawnixProps = {
   onThemeChange?: (value: ThemeColorMode) => void;
   afterInit?: (board: PlaitBoard) => void;
   tutorial?: boolean;
+  fontFamilies?: FontFamilyConfigInput[];
+  fontRoleFamilies?: FontRoleFamilyConfig;
 } & React.HTMLAttributes<HTMLDivElement>;
 
 export const Drawnix: React.FC<DrawnixProps> = ({
@@ -66,6 +75,8 @@ export const Drawnix: React.FC<DrawnixProps> = ({
   onValueChange,
   afterInit,
   tutorial = false,
+  fontFamilies,
+  fontRoleFamilies,
 }) => {
   const options: PlaitBoardOptions = {
     readonly: false,
@@ -109,9 +120,24 @@ export const Drawnix: React.FC<DrawnixProps> = ({
     withFreehand,
     buildPencilPlugin(updateAppState),
     buildTextLinkPlugin(updateAppState),
+    withSelectionHit,
   ];
 
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setProjectFontFamilyOptions(fontFamilies);
+    return () => {
+      setProjectFontFamilyOptions(undefined);
+    };
+  }, [fontFamilies]);
+
+  useEffect(() => {
+    setProjectFontRoleFamilies(fontRoleFamilies);
+    return () => {
+      setProjectFontRoleFamilies(undefined);
+    };
+  }, [fontRoleFamilies]);
 
   return (
     <I18nProvider>
@@ -159,7 +185,9 @@ export const Drawnix: React.FC<DrawnixProps> = ({
             <TTDDialog container={containerRef.current}></TTDDialog>
             <CleanConfirm container={containerRef.current}></CleanConfirm>
           </Wrapper>
-          <canvas className={`${LASER_POINTER_CLASS_NAME} mouse-course-hidden`}></canvas>
+          <canvas
+            className={`${LASER_POINTER_CLASS_NAME} mouse-course-hidden`}
+          ></canvas>
         </div>
       </DrawnixContext.Provider>
     </I18nProvider>

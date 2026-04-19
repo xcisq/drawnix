@@ -36,6 +36,7 @@ import {
 import { CustomText, StrokeStyle } from '@plait/common';
 import { getTextMarksByElement } from '@plait/text-plugins';
 import { PopupFontColorButton } from './font-color-button';
+import { PopupFontFamilyControl } from './font-family-control';
 import { PopupFontSizeControl } from './font-size-control';
 import { PopupStrokeButton } from './stroke-button';
 import { PopupFillButton } from './fill-button';
@@ -48,6 +49,8 @@ import { MoreOptionsButton } from './more-options-button';
 import { Popover, PopoverContent, PopoverTrigger } from '../../popover/popover';
 import { BoardStylePanel } from '../../../llm-mermaid/components/board-style-panel';
 import { ToolButton } from '../../tool-button';
+import { isTextFragmentMetadata } from '../../../scene-import/text-fragment';
+import { ArrangeButton } from './arrange-button';
 
 export const PopupToolbar = () => {
   const board = useBoard();
@@ -56,10 +59,14 @@ export const PopupToolbar = () => {
   const [stylePanelOpen, setStylePanelOpen] = useState(false);
   const [movingOrDragging, setMovingOrDragging] = useState(false);
   const movingOrDraggingRef = useRef(movingOrDragging);
+  const hasSelectedTextFragmentImage = selectedElements.some((element) =>
+    isTextFragmentMetadata((element as any)?.sceneImportMetadata)
+  );
   const open =
     selectedElements.length > 0 &&
     !isSelectionMoving(board) &&
-    !selectedElements.some(PlaitDrawElement.isImage);
+    (!selectedElements.some(PlaitDrawElement.isImage) ||
+      hasSelectedTextFragmentImage);
   const { viewport, selection, children } = board;
   const { refs, floatingStyles } = useFloating({
     placement: 'right-start',
@@ -71,6 +78,7 @@ export const PopupToolbar = () => {
     strokeStyle?: StrokeStyle;
     hasFill?: boolean;
     hasText?: boolean;
+    hasFontFamily?: boolean;
     fontColor?: string;
     hasFontColor?: boolean;
     hasStroke?: boolean;
@@ -90,6 +98,10 @@ export const PopupToolbar = () => {
     const hasText = selectedElements.some((value) =>
       hasTextProperty(board, value)
     );
+    const hasFontFamily = selectedElements.some((value) => {
+      const metadata = (value as any)?.sceneImportMetadata;
+      return hasTextProperty(board, value) || isTextFragmentMetadata(metadata);
+    });
     const hasStroke =
       selectedElements.some((value) => hasStrokeProperty(board, value)) &&
       !PlaitBoard.hasBeenTextEditing(board);
@@ -103,6 +115,7 @@ export const PopupToolbar = () => {
       ...getElementState(board),
       hasFill,
       hasFontColor: hasText,
+      hasFontFamily,
       hasStroke,
       hasStrokeStyle,
       hasText,
@@ -195,7 +208,15 @@ export const PopupToolbar = () => {
           ref={refs.setFloating}
           style={floatingStyles}
         >
-          <Stack.Row gap={1}>
+          <Stack.Row gap={1} className="popup-toolbar__row">
+            {state.hasFontFamily && (
+              <PopupFontFamilyControl
+                board={board}
+                key={'font-family'}
+                currentFontFamily={getCurrentFontFamily(board, state.marks)}
+                title={t('popupToolbar.fontFamily')}
+              />
+            )}
             {state.hasText && (
               <PopupFontSizeControl
                 board={board}
@@ -252,6 +273,7 @@ export const PopupToolbar = () => {
                 title={t('popupToolbar.link')}
               ></PopupLinkButton>
             )}
+            <ArrangeButton board={board} />
             {state.isLine && (
               <>
                 <ArrowMarkButton
@@ -411,4 +433,25 @@ const getFontSizeFromMarks = (marks?: Omit<CustomText, 'text'>) => {
   const value = (marks as any)?.['font-size'];
   const size = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(size) && size > 0 ? size : undefined;
+};
+
+const getFontFamilyFromMarks = (marks?: Omit<CustomText, 'text'>) => {
+  const value = (marks as any)?.fontFamily ?? (marks as any)?.['font-family'];
+  return typeof value === 'string' && value.trim() ? value : undefined;
+};
+
+const getCurrentFontFamily = (
+  board: PlaitBoard,
+  marks?: Omit<CustomText, 'text'>
+) => {
+  const fromMarks = getFontFamilyFromMarks(marks);
+  if (fromMarks) {
+    return fromMarks;
+  }
+  const selectedElement = getSelectedElements(board)[0] as any;
+  const metadata = selectedElement?.sceneImportMetadata;
+  if (isTextFragmentMetadata(metadata)) {
+    return metadata.style?.fontFamily;
+  }
+  return undefined;
 };
